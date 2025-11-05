@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head><title>Favicon Generator</title></head>
+<body>
+<canvas id="c" width="32" height="32" style="border:1px solid #ccc;"></canvas>
+<script>
+const c=document.getElementById('c');
+const ctx=c.getContext('2d');
+ctx.fillStyle='#ff7d47';
+ctx.fillRect(0,0,32,32);
+ctx.font='24px Arial';
+ctx.textAlign='center';
+ctx.textBaseline='middle';
+ctx.fillText('✍️',16,16);
+c.toBlob(b=>{
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);
+  a.download='favicon.png';
+  a.click();
+  console.log('PNG généré! Utilisez convertio.co pour convertir en ICO');
+});
+</script>
+</body>
+</html>

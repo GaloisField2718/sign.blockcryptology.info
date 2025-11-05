@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './App.css';
-import { Button, Card, CollapseProps, Input, Radio, message } from 'antd';
+import { Button, Card, CollapseProps, Input, message } from 'antd';
 import { CHAINS_MAP, ChainType } from './const';
 import { copyToClipboard, satoshisToAmount } from './utils';
 import { SendBitcoinCard } from './components/SendBitcoinCard';
@@ -9,11 +9,9 @@ import { PushTxCard } from './components/PushTxCard';
 import { SignMessageCard } from './components/SignMessageCard';
 import { SignPsbtCard } from './components/SignPsbtCard';
 import { Collapse } from 'antd';
-import { InscribeTransferCard } from './components/InscribeTransferCard';
-import { SendInscriptionCard } from './components/SendInscriptionCard';
-import { SendRunesCard } from './components/SendRunesCard';
 import { MultiSignMessageCard } from './components/MultiSignMessageCard';
 import { SignPsbtsCard } from './components/SignPsbtsCard';
+import { DecodePsbtTxCard } from './components/DecodePsbtTxCard';
 import useMessage from 'antd/es/message/useMessage';
 
 function App() {
@@ -194,7 +192,7 @@ function App() {
                 window.location.href = 'https://unisat.io';
               }}
             >
-              Install Unisat Wallet
+              Install Bitcoin Wallet Extension
             </Button>
           </div>
         </header>
@@ -207,71 +205,55 @@ function App() {
   const items: CollapseProps['items'] = [
     {
       key: 'sendBitcoin',
-      label: <div style={{ textAlign: 'start' }}>unisat.sendBitcoin</div>,
+      label: <div style={{ textAlign: 'start' }}>Send Bitcoin</div>,
       children: <SendBitcoinCard />,
     },
     {
-      key: 'sendInscription',
-      label: <div style={{ textAlign: 'start' }}>unisat.sendInscription</div>,
-      children: <SendInscriptionCard />,
-    },
-    {
-      key: 'sendRunes',
-      label: <div style={{ textAlign: 'start' }}>unisat.sendRunes</div>,
-      children: <SendRunesCard />,
-    },
-    {
-      key: 'inscribeTransfer',
-      label: <div style={{ textAlign: 'start' }}>unisat.inscribeTransfer</div>,
-      children: <InscribeTransferCard />,
-    },
-    {
       key: 'signMessage',
-      label: <div style={{ textAlign: 'start' }}>unisat.signMessage</div>,
+      label: <div style={{ textAlign: 'start' }}>Sign Message</div>,
       children: <SignMessageCard />,
     },
     {
       key: 'multiSignMessage',
-      label: <div style={{ textAlign: 'start' }}>unisat.multiSignMessage</div>,
+      label: <div style={{ textAlign: 'start' }}>Multi Sign Message</div>,
       children: <MultiSignMessageCard />,
     },
     {
       key: 'signPsbt',
-      label: <div style={{ textAlign: 'start' }}>unisat.signPsbt</div>,
+      label: <div style={{ textAlign: 'start' }}>Sign PSBT</div>,
       children: <SignPsbtCard />,
     },
     {
       key: 'signPsbts',
-      label: <div style={{ textAlign: 'start' }}>unisat.signPsbts</div>,
+      label: <div style={{ textAlign: 'start' }}>Sign Multiple PSBTs</div>,
       children: <SignPsbtsCard />,
     },
     {
       key: 'pushPsbt',
-      label: <div style={{ textAlign: 'start' }}>unisat.pushPsbt</div>,
+      label: <div style={{ textAlign: 'start' }}>Broadcast PSBT</div>,
       children: <PushPsbtCard />,
     },
     {
       key: 'pushTx',
-      label: <div style={{ textAlign: 'start' }}>unisat.pushTx</div>,
+      label: <div style={{ textAlign: 'start' }}>Broadcast Transaction</div>,
       children: <PushTxCard />,
+    },
+    {
+      key: 'decodePsbtTx',
+      label: <div style={{ textAlign: 'start' }}>Decode PSBT/Tx</div>,
+      children: <DecodePsbtTxCard />,
     },
   ];
 
-  const chains = Object.keys(CHAINS_MAP).map((key) => {
-    const chain = CHAINS_MAP[key as ChainType];
-    return {
-      label: chain.label,
-      value: chain.enum,
-    };
-  });
-
-  const supportLegacyNetworks = ['livenet', 'testnet'];
   return (
     <div className="App">
       <header className="App-header">
         <div className="header-container">
           <div style={{ minWidth: 100 }}> </div>
-          <p>Unisat Wallet Demo</p>
+          <div className="app-title">
+            <h1>Sign PSBTs</h1>
+            <p className="subtitle">Bitcoin PSBT & Signature Tools</p>
+          </div>
           <div style={{ minWidth: 100 }}>
             {connected ? (
               <Button
@@ -295,58 +277,14 @@ function App() {
                   <div style={{ wordWrap: 'break-word' }}>{version}</div>
                 </div>
 
-                {chain ? (
-                  <div style={{ textAlign: 'left', marginTop: 10 }}>
-                    <div style={{ fontWeight: 'bold' }}>Chain:</div>
-                    <Radio.Group
-                      onChange={async (e) => {
-                        try {
-                          const chain = await unisat.switchChain(
-                            e.target.value
-                          );
-                          setChainType(chain.enum);
-                        } catch (e) {
-                          messageApi.error((e as any).message);
-                        }
-                      }}
-                      value={chain.enum}
-                    >
-                      {chains.map((chain) => (
-                        <Radio key={chain.value} value={chain.value}>
-                          {chain.label}
-                        </Radio>
-                      ))}
-                    </Radio.Group>
-                  </div>
-                ) : null}
+                <div style={{ textAlign: 'left', marginTop: 10 }}>
+                  <div style={{ fontWeight: 'bold' }}>Chain:</div>
+                  <div style={{ wordWrap: 'break-word' }}>Bitcoin Mainnet</div>
+                </div>
 
                 <div style={{ textAlign: 'left', marginTop: 10 }}>
                   <div style={{ fontWeight: 'bold' }}>Network:</div>
-                  {supportLegacyNetworks.includes(network) ? (
-                    <Radio.Group
-                      onChange={async (e) => {
-                        try {
-                          const network = await unisat.switchNetwork(
-                            e.target.value
-                          );
-                          setNetwork(network);
-                        } catch (e) {
-                          messageApi.error((e as any).message);
-                        }
-                      }}
-                      value={network}
-                    >
-                      <Radio value={'livenet'}>livenet</Radio>
-                      <Radio value={'testnet'}>testnet</Radio>
-                    </Radio.Group>
-                  ) : (
-                    <div>
-                      <p>
-                        "unisat.getNetwork" is legacy. Please use
-                        "unisat.getChain" instead.{' '}
-                      </p>
-                    </div>
-                  )}
+                  <div style={{ wordWrap: 'break-word' }}>livenet</div>
                 </div>
               </Card>
               <Card size="small" title="Account Info" style={{ flex: 1 }}>
@@ -417,7 +355,7 @@ function App() {
                 }
               }}
             >
-              Connect Unisat Wallet
+              Connect Wallet
             </Button>
           </div>
         )}
