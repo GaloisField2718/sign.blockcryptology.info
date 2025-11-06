@@ -1,0 +1,22 @@
+# PostgREST Configuration File
+# Copy this file to /etc/postgrest/postgrest.conf and update the values
+
+# Database connection string
+# Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
+# Replace 'your_password' with your actual PostgreSQL password
+db-uri = "postgresql://sign_blockcryptology:your_password@localhost:5432/sign_blockcryptology"
+
+# Database schema to expose
+db-schema = "public"
+
+# Anonymous role (created in PostgreSQL schema setup)
+db-anon-role = "web_anon"
+
+# Server configuration
+# Use 0.0.0.0 for Docker, 127.0.0.1 for systemd service
+server-host = "0.0.0.0"
+server-port = 3001
+
+# API proxy URI (optional, for OpenAPI documentation)
+# openapi-server-proxy-uri = "https://sign.blockcryptology.info"
+

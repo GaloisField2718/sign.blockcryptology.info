@@ -206,7 +206,7 @@ function App() {
   const items: CollapseProps['items'] = [
     {
       key: 'utxosList',
-      label: <div style={{ textAlign: 'start' }}>UTXOs List</div>,
+      label: <div className="utxos-list-header" style={{ textAlign: 'start' }}>UTXOs List</div>,
       children: <UtxosListCard defaultAddress={address} />,
     },
     {
@@ -347,6 +347,7 @@ function App() {
               onChange={() => {
                 // todo
               }}
+              expandIconPosition="start"
             />
           </div>
         ) : (
