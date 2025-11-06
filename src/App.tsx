@@ -12,6 +12,7 @@ import { Collapse } from 'antd';
 import { MultiSignMessageCard } from './components/MultiSignMessageCard';
 import { SignPsbtsCard } from './components/SignPsbtsCard';
 import { DecodePsbtTxCard } from './components/DecodePsbtTxCard';
+import { UtxosListCard } from './components/UtxosListCard';
 import useMessage from 'antd/es/message/useMessage';
 
 function App() {
@@ -203,6 +204,11 @@ function App() {
   const unisat = (window as any).unisat;
 
   const items: CollapseProps['items'] = [
+    {
+      key: 'utxosList',
+      label: <div style={{ textAlign: 'start' }}>UTXOs List</div>,
+      children: <UtxosListCard defaultAddress={address} />,
+    },
     {
       key: 'sendBitcoin',
       label: <div style={{ textAlign: 'start' }}>Send Bitcoin</div>,
