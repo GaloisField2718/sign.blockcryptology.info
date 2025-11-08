@@ -11,7 +11,7 @@ interface Output {
   amount: string;
 }
 
-export function SendBitcoinCard() {
+export function SendMultiRecipientCard() {
   const [outputs, setOutputs] = useState<Output[]>([
     { address: "", amount: "1000" },
   ]);
@@ -107,7 +107,7 @@ export function SendBitcoinCard() {
   };
 
   return (
-    <Card size="small" title="Send Bitcoin" style={{ margin: 10 }}>
+    <Card size="small" title="Send Multi-Recipient" style={{ margin: 10 }}>
       <div style={{ textAlign: "left", marginTop: 10 }}>
         <div style={{ fontWeight: "bold" }}>Docs:</div>
         <a href={doc_url} target="_blank" rel="noreferrer">
@@ -295,7 +295,7 @@ export function SendBitcoinCard() {
           (out) => !out.address.trim() || !out.amount.trim()
         )}
       >
-        Send Bitcoin
+        Send Bitcoin (Auto UTXO Selection)
       </Button>
     </Card>
   );

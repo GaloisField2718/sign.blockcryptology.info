@@ -3,7 +3,8 @@ import './App.css';
 import { Button, Card, CollapseProps, Input, message } from 'antd';
 import { CHAINS_MAP, ChainType } from './const';
 import { copyToClipboard, satoshisToAmount } from './utils';
-import { SendBitcoinCard } from './components/SendBitcoinCard';
+import { SendMultiRecipientCard } from './components/SendMultiRecipientCard';
+import { SendUtxosCard } from './components/SendUtxosCard';
 import { PushPsbtCard } from './components/PushPsbtCard';
 import { PushTxCard } from './components/PushTxCard';
 import { SignMessageCard } from './components/SignMessageCard';
@@ -211,9 +212,14 @@ function App() {
       children: <UtxosListCard defaultAddress={address} />,
     },
     {
-      key: 'sendBitcoin',
-      label: <div style={{ textAlign: 'start' }}>Send Bitcoin</div>,
-      children: <SendBitcoinCard />,
+      key: 'sendUtxos',
+      label: <div style={{ textAlign: 'start' }}>Send UTXOs</div>,
+      children: <SendUtxosCard />,
+    },
+    {
+      key: 'sendMultiRecipient',
+      label: <div style={{ textAlign: 'start' }}>Send Multi-Recipient</div>,
+      children: <SendMultiRecipientCard />,
     },
     {
       key: 'signMessage',
