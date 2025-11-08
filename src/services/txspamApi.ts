@@ -9,12 +9,22 @@ import { SDK_TXSPAM_API_URL, SDK_TXSPAM_SECRET_TOKEN } from '../config';
 
 // ========== Types & Interfaces ==========
 
+export interface Inscription {
+  inscriptionId: string;
+  offset?: number;
+  [key: string]: any; // Allow other properties
+}
+
 export interface TxspamUtxo {
   txid: string;
   vout: number;
   satoshi: number;
   address: string;
   scriptPk: string;
+  inscriptions?: Inscription[];  // Array of inscriptions
+  isInscription?: boolean;        // Whether UTXO contains an inscription
+  height?: number;                 // Block height
+  isSpent?: boolean;               // Whether UTXO is spent
 }
 
 export interface UtxoStatus {

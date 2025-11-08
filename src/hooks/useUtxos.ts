@@ -146,6 +146,10 @@ export function useUtxos(options: UseUtxosOptions = {}): UseUtxosReturn {
             satoshi,
             address: utxo.address || address.trim(),
             scriptPk: utxo.scriptPk || (utxo as any).scriptPk || '',
+            inscriptions: (utxo as any).inscriptions || [],
+            isInscription: (utxo as any).isInscription === true,
+            height: (utxo as any).height,
+            isSpent: (utxo as any).isSpent === true,
           };
         });
 

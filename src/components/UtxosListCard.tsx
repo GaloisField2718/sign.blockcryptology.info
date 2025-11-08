@@ -76,14 +76,36 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
     setFetchStatus(false);
   };
 
-  // Séparer les UTXOs par statut
-  const unspentUtxos = utxos.filter((utxo) => !utxo.isSpent && !utxo.isLocked);
+  // Séparer les UTXOs par catégorie
+  // 1. UTXOs avec inscriptions (isInscription: true ou inscriptions.length > 0)
+  const inscriptionUtxos = utxos.filter((utxo) => {
+    const hasInscriptions = (utxo as any).isInscription === true || 
+                           ((utxo as any).inscriptions && (utxo as any).inscriptions.length > 0);
+    return hasInscriptions && !utxo.isLocked;
+  });
+  
+  // 2. UTXOs sans inscriptions (non inscriptions, non locked)
+  const nonInscriptionUtxos = utxos.filter((utxo) => {
+    const hasInscriptions = (utxo as any).isInscription === true || 
+                           ((utxo as any).inscriptions && (utxo as any).inscriptions.length > 0);
+    return !hasInscriptions && !utxo.isSpent && !utxo.isLocked;
+  });
+  
+  // 3. UTXOs locked par le marché
   const lockedUtxos = utxos.filter((utxo) => utxo.isLocked === true);
+  
+  // 4. UTXOs spent (pour historique)
   const spentUtxos = utxos.filter((utxo) => utxo.isSpent === true && !utxo.isLocked);
+  
+  // 5. Status unknown
   const unknownStatusUtxos = utxos.filter((utxo) => utxo.isSpent === undefined && utxo.isLocked === undefined);
 
   // Calculer les totaux (avec vérification de sécurité)
-  const totalUnspent = unspentUtxos.reduce((sum, utxo) => {
+  const totalInscriptions = inscriptionUtxos.reduce((sum, utxo) => {
+    const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
+    return sum + satoshi;
+  }, 0);
+  const totalNonInscriptions = nonInscriptionUtxos.reduce((sum, utxo) => {
     const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
     return sum + satoshi;
   }, 0);
@@ -215,14 +237,33 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
           <Text strong>{satoshi.toLocaleString()} sats</Text>{" "}
           <Text type="secondary">(=)</Text>{" "}
           <Text strong>{btcAmount} BTC</Text>
-          {utxo.scriptPk && (
+        </Space>
+        {(utxo as any).inscriptions && (utxo as any).inscriptions.length > 0 && (
+          <div style={{ marginTop: 6, fontSize: "12px", paddingLeft: 24 }}>
+            <Text type="secondary">Inscriptions: </Text>
+            {(utxo as any).inscriptions.map((inscription: any, i: number) => (
+              <Link
+                key={i}
+                href={`https://ordiscan.com/inscription/${inscription.inscriptionId}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ marginLeft: 4 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {inscription.inscriptionId.slice(0, 8)}...{inscription.inscriptionId.slice(-8)}
+              </Link>
+            ))}
+          </div>
+        )}
+        {utxo.scriptPk && (
+          <div style={{ marginTop: 4, paddingLeft: 24 }}>
             <Tooltip title={`ScriptPK: ${utxo.scriptPk}`}>
-              <Text type="secondary" style={{ fontSize: "11px", marginLeft: 8 }}>
+              <Text type="secondary" style={{ fontSize: "11px" }}>
                 [scriptPk]
               </Text>
             </Tooltip>
-          )}
-        </Space>
+          </div>
+        )}
       </div>
     );
   };
@@ -355,8 +396,44 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
 
       {!loading && utxos.length > 0 && (
         <div style={{ marginTop: 20, textAlign: "left" }}>
-          {/* Unspent UTXOs */}
-          {unspentUtxos.length > 0 && (
+          {/* UTXOs avec Inscriptions */}
+          {inscriptionUtxos.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "16px",
+                  marginBottom: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <CheckCircleOutlined style={{ color: "#722ed1" }} />
+                UTXOs with Inscriptions ({inscriptionUtxos.length}):
+              </div>
+              <div>
+                {inscriptionUtxos.map((utxo, idx) =>
+                  renderUtxoItem(utxo, idx, true)
+                )}
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px",
+                    backgroundColor: "rgba(114, 46, 209, 0.1)",
+                    borderRadius: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Total: {totalInscriptions.toLocaleString()} sats (
+                  {satoshisToAmount(totalInscriptions)} BTC)
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* UTXOs sans Inscriptions (Available Balance) */}
+          {nonInscriptionUtxos.length > 0 && (
             <div style={{ marginBottom: 20 }}>
               <div
                 style={{
@@ -369,10 +446,10 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
                 }}
               >
                 <CheckCircleOutlined style={{ color: "#52c41a" }} />
-                Available Balance (Unspent):
+                Available Balance (Non-Inscription UTXOs) ({nonInscriptionUtxos.length}):
               </div>
               <div>
-                {unspentUtxos.map((utxo, idx) =>
+                {nonInscriptionUtxos.map((utxo, idx) =>
                   renderUtxoItem(utxo, idx, true)
                 )}
                 <div
@@ -384,8 +461,8 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
                     fontWeight: "bold",
                   }}
                 >
-                  Total: {totalUnspent.toLocaleString()} sats (
-                  {satoshisToAmount(totalUnspent)} BTC)
+                  Total: {totalNonInscriptions.toLocaleString()} sats (
+                  {satoshisToAmount(totalNonInscriptions)} BTC)
                 </div>
               </div>
             </div>
