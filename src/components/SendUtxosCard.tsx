@@ -126,6 +126,7 @@ export function SendUtxosCard() {
           vout: parseInt(vout, 10),
           value: utxo.value,
           address: utxo.address,
+          scriptPk: utxo.scriptPk || undefined, // Include scriptPk if available (required for Taproot)
         };
       });
 
@@ -138,8 +139,19 @@ export function SendUtxosCard() {
       // Get network
       const network = getNetworkFromChainType(chainType);
 
-      // Build PSBT with user-specified fee rate
-      const feeRateNum = parseFloat(feeRate) || 0.9;
+      // Build PSBT with user-specified fee rate (supports decimal values like 0.1, 0.6, 3.4)
+      // Handle edge cases: "01" should be treated as "1", "0.1" stays as "0.1"
+      let feeRateNum = parseFloat(feeRate);
+      if (isNaN(feeRateNum)) {
+        throw new Error("Fee rate must be a valid number (e.g., 0.1, 0.6, 3.4)");
+      }
+      // If user enters "01" (leading zero), treat as "1"
+      if (feeRate.startsWith("0") && !feeRate.startsWith("0.") && feeRate.length > 1) {
+        feeRateNum = parseFloat(feeRate.replace(/^0+/, ""));
+      }
+      if (feeRateNum <= 0) {
+        throw new Error("Fee rate must be a positive number");
+      }
       if (feeRateNum < 0.01) {
         throw new Error("Fee rate must be at least 0.01 sat/vB");
       }
@@ -407,18 +419,18 @@ export function SendUtxosCard() {
           value={feeRate}
           onChange={(e) => {
             const value = e.target.value;
-            // Allow empty or valid numbers >= 1
-            if (value === "" || (!isNaN(parseInt(value, 10)) && parseInt(value, 10) >= 1)) {
+            // Allow empty, valid numbers, or decimal numbers >= 0.01
+            if (value === "" || value === "." || /^\d*\.?\d*$/.test(value)) {
               setFeeRate(value);
             }
           }}
           placeholder="1"
-          type="number"
-          min="1"
+          type="text"
+          inputMode="decimal"
           disabled={selectedUtxos.length === 0}
         />
         <div style={{ fontSize: "12px", color: "#8c8c8c", marginTop: 4 }}>
-          Enter the fee rate in satoshis per virtual byte (vB). Minimum: 1 sat/vB
+          Enter the fee rate in satoshis per virtual byte (vB). Supports decimal values (e.g., 0.1, 0.6, 3.4). Minimum: 0.01 sat/vB
         </div>
       </div>
 
@@ -596,7 +608,8 @@ export function SendUtxosCard() {
             outputs.some((out) => !out.address.trim() || !out.amount.trim()) ||
             !changeAddress.trim() ||
             !feeRate ||
-            parseInt(feeRate, 10) < 1
+            isNaN(parseFloat(feeRate)) ||
+            parseFloat(feeRate) < 0.01
           }
           icon={<WalletOutlined />}
         >

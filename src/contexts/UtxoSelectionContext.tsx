@@ -4,6 +4,7 @@ export interface SelectedUtxo {
   outpoint: string; // Format: "txid:vout"
   value: number; // Satoshis
   address: string; // Bitcoin address
+  scriptPk?: string; // Optional scriptPubKey hex (required for Taproot addresses)
 }
 
 interface UtxoSelectionContextType {

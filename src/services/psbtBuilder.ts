@@ -1,6 +1,11 @@
 import * as bitcoin from "bitcoinjs-lib";
-import { Psbt } from "bitcoinjs-lib";
+import { Psbt, initEccLib } from "bitcoinjs-lib";
+import * as secp256k1 from "@bitcoinerlab/secp256k1";
 import { ChainType } from "../const";
+
+// Initialize ECC library for bitcoinjs-lib v6 (required for Taproot support)
+// @bitcoinerlab/secp256k1 is a wrapper for @noble/secp256k1 compatible with bitcoinjs-lib
+initEccLib(secp256k1);
 
 export interface UtxoInput {
   txid: string;
@@ -98,6 +103,7 @@ export function buildInputIfNotDuplicated(
 /**
  * Calculate transaction fee in satoshis
  * Fee = (estimated vbytes) * feeRate
+ * Supports decimal feeRate values (e.g., 0.1, 0.6, 3.4)
  */
 export function calculateFee(
   inputs: UtxoInput[],
@@ -126,7 +132,9 @@ export function calculateFee(
     (baseSize + totalInputSize + totalOutputSize + totalWitnessSize) / 4
   );
 
-  return totalVBytes * feeRate;
+  // Calculate fee with decimal feeRate support
+  // Round to nearest satoshi
+  return Math.round(totalVBytes * feeRate);
 }
 
 /**
@@ -154,12 +162,8 @@ export function buildPsbt(options: BuildPsbtOptions): {
     throw new Error("At least one output is required");
   }
 
-  // Validate change address
-  try {
-    bitcoin.address.toOutputScript(changeAddress, network);
-  } catch (error) {
-    throw new Error(`Invalid change address: ${changeAddress}`);
-  }
+  // No validation for change address - psbt.addOutput() will handle address conversion internally
+  // This allows all address types including Taproot without requiring ECC library
 
   // Calculate total input value
   const totalInputValue = inputs.reduce((sum, input) => sum + input.value, 0);
@@ -186,18 +190,22 @@ export function buildPsbt(options: BuildPsbtOptions): {
   }
 
   // Add outputs
+  // psbt.addOutput() handles address conversion internally, including Taproot addresses
   for (const output of outputs) {
     try {
-      const outputScript = bitcoin.address.toOutputScript(
-        output.address,
-        network
-      );
+      // Basic validation for non-Taproot addresses
+      if (!output.address.startsWith("bc1p") && !output.address.startsWith("tb1p") && !output.address.startsWith("bcrt1p")) {
+        bitcoin.address.toOutputScript(output.address, network);
+      }
+      
+      // psbt.addOutput() will handle the address conversion, including Taproot
       psbt.addOutput({
         address: output.address,
         value: output.amount,
       });
     } catch (error) {
-      throw new Error(`Invalid output address ${output.address}: ${error}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Invalid output address ${output.address}: ${errorMsg}`);
     }
   }
 
@@ -209,18 +217,17 @@ export function buildPsbt(options: BuildPsbtOptions): {
   const changeAmount = totalInputValue - totalOutputValue - estimatedFee;
 
   // Add change output if change > dust threshold (546 sats)
+  // psbt.addOutput() handles address conversion internally, including Taproot addresses
   if (changeAmount > 546) {
     try {
-      const changeScript = bitcoin.address.toOutputScript(
-        changeAddress,
-        network
-      );
+      // psbt.addOutput() will handle the address conversion, including Taproot
       psbt.addOutput({
         address: changeAddress,
         value: changeAmount,
       });
     } catch (error) {
-      throw new Error(`Failed to add change output: ${error}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to add change output: ${errorMsg}`);
     }
   } else if (changeAmount < 0) {
     throw new Error(

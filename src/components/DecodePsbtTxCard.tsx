@@ -226,8 +226,27 @@ export function DecodePsbtTxCard() {
       throw new Error(`Failed to parse PSBT: ${e.message}`);
     }
 
-    // Extract transaction from PSBT
-    const tx = psbt.extractTransaction(true); // true = extract even if not finalized
+    // Extract transaction from PSBT (allow incomplete/non-finalized)
+    // Try to extract with allowIncomplete flag first (true = extract even if not finalized)
+    let tx;
+    let isFinalized = false;
+    
+    try {
+      // Try to extract finalized transaction first (will throw if not finalized)
+      tx = psbt.extractTransaction(false);
+      isFinalized = true;
+    } catch (finalizedError) {
+      // If not finalized, extract with allowIncomplete flag
+      try {
+        tx = psbt.extractTransaction(true); // true = extract even if not finalized
+        isFinalized = false;
+      } catch (extractError: any) {
+        // If extraction still fails, the PSBT might be too incomplete
+        // Provide a helpful error message
+        const errorMsg = extractError?.message || String(extractError);
+        throw new Error(`Failed to extract transaction from PSBT: ${errorMsg}. The PSBT may be incomplete or corrupted.`);
+      }
+    }
     
     const outputs: DecodedOutput[] = tx.outs.map((out, index) => {
       const script = out.script;
@@ -276,12 +295,21 @@ export function DecodePsbtTxCard() {
       sequence: input.sequence,
     }));
 
-    // Check if PSBT is finalized
-    let isFinalized = true;
-    try {
-      psbt.finalizeAllInputs();
-    } catch {
-      isFinalized = false;
+    // Verify finalized status if we extracted with allowIncomplete
+    // We already know from extraction attempt, but double-check for accuracy
+    if (!isFinalized) {
+      // Check if PSBT can be finalized (all inputs have signatures)
+      try {
+        // Create a new PSBT from buffer to test finalization without modifying original
+        const testBuffer = psbt.toBuffer();
+        const testPsbt = Psbt.fromBuffer(testBuffer);
+        testPsbt.finalizeAllInputs();
+        // If we get here, it can be finalized (but wasn't when we extracted)
+        // Keep isFinalized = false since the original wasn't finalized
+      } catch {
+        // Cannot be finalized, which confirms isFinalized = false
+        isFinalized = false;
+      }
     }
 
     return {

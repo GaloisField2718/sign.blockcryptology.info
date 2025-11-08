@@ -180,6 +180,7 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
               outpoint,
               value: satoshi,
               address: address.trim(),
+              scriptPk: utxo.scriptPk || undefined,
             });
           }
         }}
@@ -194,6 +195,7 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
                   outpoint,
                   value: satoshi,
                   address: address.trim(),
+                  scriptPk: utxo.scriptPk || undefined,
                 });
               }}
               onClick={(e) => e.stopPropagation()}
