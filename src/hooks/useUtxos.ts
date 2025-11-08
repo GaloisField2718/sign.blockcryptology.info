@@ -221,6 +221,7 @@ export function useUtxos(options: UseUtxosOptions = {}): UseUtxosReturn {
                 ...utxo,
                 status,
                 isSpent: status.isSpent,
+                isLocked: status.isLocked,
               };
             }
             return utxo;

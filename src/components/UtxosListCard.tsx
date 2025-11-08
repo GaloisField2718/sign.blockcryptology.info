@@ -87,6 +87,10 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
     const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
     return sum + satoshi;
   }, 0);
+  const totalLocked = lockedUtxos.reduce((sum, utxo) => {
+    const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
+    return sum + satoshi;
+  }, 0);
   const totalSpent = spentUtxos.reduce((sum, utxo) => {
     const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
     return sum + satoshi;
@@ -117,8 +121,9 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
     const btcAmount = satoshisToAmount(satoshi);
     const outpoint = `${utxo.txid}:${utxo.vout}`;
     const isSelected = isUtxoSelected(outpoint);
-    const isSpent = utxo.isSpent === true;
-    const statusUnknown = utxo.isSpent === undefined;
+    const isSpent = utxo.isSpent === true && !utxo.isLocked;
+    const isLocked = utxo.isLocked === true;
+    const statusUnknown = utxo.isSpent === undefined && utxo.isLocked === undefined;
 
     return (
       <div
@@ -128,6 +133,8 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
           padding: "8px",
           backgroundColor: isSelected
             ? "rgba(24, 144, 255, 0.1)"
+            : isLocked
+            ? "rgba(255, 193, 7, 0.05)"
             : isSpent
             ? "rgba(255, 77, 79, 0.05)"
             : "var(--bg-card)",
@@ -136,14 +143,16 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
           fontSize: "13px",
           border: isSelected
             ? "1px solid #1890ff"
+            : isLocked
+            ? "1px solid rgba(255, 193, 7, 0.3)"
             : isSpent
             ? "1px solid rgba(255, 77, 79, 0.3)"
             : "1px solid transparent",
-          cursor: isSpent ? "not-allowed" : "pointer",
-          opacity: isSpent ? 0.6 : 1,
+          cursor: (isSpent || isLocked) ? "not-allowed" : "pointer",
+          opacity: (isSpent || isLocked) ? 0.6 : 1,
         }}
         onClick={() => {
-          if (!isSpent) {
+          if (!isSpent && !isLocked) {
             const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
             toggleUtxo({
               outpoint,
@@ -154,7 +163,7 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
         }}
       >
         <Space>
-          {!isSpent && (
+          {!isSpent && !isLocked && (
             <Checkbox
               checked={isSelected}
               onChange={() => {
@@ -170,7 +179,13 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
           )}
           {showStatus && (
             <>
-              {isSpent ? (
+              {isLocked ? (
+                <Tooltip title="This UTXO is locked by the market">
+                  <Tag color="orange" icon={<CloseCircleOutlined />}>
+                    Market-locked
+                  </Tag>
+                </Tooltip>
+              ) : isSpent ? (
                 <Tooltip title="This UTXO has been spent">
                   <Tag color="red" icon={<CloseCircleOutlined />}>
                     Spent
@@ -417,6 +432,42 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
                 >
                   Total: {totalUnknown.toLocaleString()} sats (
                   {satoshisToAmount(totalUnknown)} BTC)
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Market-locked UTXOs */}
+          {lockedUtxos.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "16px",
+                  marginBottom: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <CloseCircleOutlined style={{ color: "#ff9800" }} />
+                Market-locked UTXOs:
+              </div>
+              <div>
+                {lockedUtxos.map((utxo, idx) =>
+                  renderUtxoItem(utxo, idx, true)
+                )}
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px",
+                    backgroundColor: "rgba(255, 193, 7, 0.1)",
+                    borderRadius: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Total: {totalLocked.toLocaleString()} sats (
+                  {satoshisToAmount(totalLocked)} BTC)
                 </div>
               </div>
             </div>
