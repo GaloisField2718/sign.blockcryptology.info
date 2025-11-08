@@ -150,6 +150,7 @@ export function useUtxos(options: UseUtxosOptions = {}): UseUtxosReturn {
             isInscription: (utxo as any).isInscription === true,
             height: (utxo as any).height,
             isSpent: (utxo as any).isSpent === true,
+            isLocked: (utxo as any).isLocked === true, // Preserve locked status from API
           };
         });
 

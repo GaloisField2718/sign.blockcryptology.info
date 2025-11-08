@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Button, Card, Input, Alert, Spin, Typography, Space, Checkbox, Tag, Tooltip } from "antd";
-import { SearchOutlined, ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { SearchOutlined, ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, LockOutlined } from "@ant-design/icons";
 import { satoshisToAmount } from "../utils";
 import { useUtxoSelection } from "../contexts/UtxoSelectionContext";
 import { useUtxos } from "../hooks/useUtxos";
@@ -203,8 +203,8 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
             <>
               {isLocked ? (
                 <Tooltip title="This UTXO is locked by the market">
-                  <Tag color="orange" icon={<CloseCircleOutlined />}>
-                    Market-locked
+                  <Tag color="orange" icon={<LockOutlined />}>
+                    Locked UTXO (By market)
                   </Tag>
                 </Tooltip>
               ) : isSpent ? (
@@ -217,10 +217,16 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
                 <Tooltip title="Status unknown - click refresh to check">
                   <Tag color="default">Unknown</Tag>
                 </Tooltip>
+              ) : (utxo as any).isInscription || ((utxo as any).inscriptions && (utxo as any).inscriptions.length > 0) ? (
+                <Tooltip title="This UTXO contains an inscription">
+                  <Tag color="orange" icon={<LockOutlined />}>
+                    Inscription
+                  </Tag>
+                </Tooltip>
               ) : (
                 <Tooltip title="This UTXO is available">
                   <Tag color="green" icon={<CheckCircleOutlined />}>
-                    Unspent
+                    Available
                   </Tag>
                 </Tooltip>
               )}

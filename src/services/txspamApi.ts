@@ -204,6 +204,7 @@ class TxspamApiClient {
             address: utxo.address || address.trim(),
             inscriptions: utxo.inscriptions || [],
             isSpent: false, // Locked UTXOs are not spent, just locked
+            isLocked: true, // ⚠️ CRITICAL: Mark as locked so they are filtered correctly
           }));
 
           // Combine both arrays
