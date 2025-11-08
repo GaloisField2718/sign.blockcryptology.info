@@ -1,6 +1,10 @@
 import React, { useState } from "react";
-import { Button, Card, Input, Space, Divider, Alert } from "antd";
+import { Button, Card, Input, Space, Divider, Alert, Typography, Tag } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
+import { useUtxoSelection } from "../contexts/UtxoSelectionContext";
+import { satoshisToAmount } from "../utils";
+
+const { Text } = Typography;
 
 interface Output {
   address: string;
@@ -17,6 +21,7 @@ export function SendBitcoinCard() {
     data: "",
   });
   const [loading, setLoading] = useState(false);
+  const { selectedUtxos, clearUtxos } = useUtxoSelection();
 
   const doc_url =
     "https://docs.unisat.io/dev/unisat-developer-center/unisat-wallet#sendbitcoin";
@@ -110,6 +115,69 @@ export function SendBitcoinCard() {
         </a>
       </div>
 
+      {selectedUtxos.length > 0 && (
+        <div style={{ textAlign: "left", marginTop: 10 }}>
+          <div style={{ fontWeight: "bold", marginBottom: 10 }}>
+            Selected UTXOs ({selectedUtxos.length}):
+          </div>
+          <div
+            style={{
+              padding: "12px",
+              backgroundColor: "#e6f7ff",
+              border: "1px solid #91d5ff",
+              borderRadius: "6px",
+              marginBottom: 10,
+            }}
+          >
+            {selectedUtxos.map((utxo, idx) => {
+              const [txid, vout] = utxo.outpoint.split(":");
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    marginBottom: idx < selectedUtxos.length - 1 ? "8px" : 0,
+                    fontSize: "12px",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  <Tag color="blue">{txid.slice(0, 16)}...:{vout}</Tag>
+                  <Text strong>{utxo.value.toLocaleString()} sats</Text>{" "}
+                  <Text type="secondary">({satoshisToAmount(utxo.value)} BTC)</Text>
+                </div>
+              );
+            })}
+            <div style={{ marginTop: "8px", fontSize: "12px" }}>
+              <Text strong>
+                Total Selected:{" "}
+                {selectedUtxos
+                  .reduce((sum, utxo) => sum + utxo.value, 0)
+                  .toLocaleString()}{" "}
+                sats (
+                {satoshisToAmount(
+                  selectedUtxos.reduce((sum, utxo) => sum + utxo.value, 0)
+                )}{" "}
+                BTC)
+              </Text>
+            </div>
+            <Button
+              type="link"
+              size="small"
+              onClick={clearUtxos}
+              style={{ padding: 0, marginTop: "4px" }}
+            >
+              Clear Selection
+            </Button>
+          </div>
+          <Alert
+            message="Note"
+            description="Selected UTXOs will be used for this transaction. The wallet will automatically select UTXOs if none are selected."
+            type="info"
+            showIcon
+            style={{ marginBottom: 10 }}
+          />
+        </div>
+      )}
+
       <div style={{ textAlign: "left", marginTop: 10 }}>
         <div style={{ fontWeight: "bold", marginBottom: 10 }}>Outputs:</div>
 
@@ -149,7 +217,7 @@ export function SendBitcoinCard() {
                 <div style={{ fontWeight: "bold", marginBottom: 5 }}>
                   Amount (satoshis):
                 </div>
-                <Input
+        <Input
                   value={output.amount}
                   onChange={(e) =>
                     updateOutput(index, "amount", e.target.value)
@@ -197,7 +265,7 @@ export function SendBitcoinCard() {
             <div>
               <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
                 Transaction ID (Txid):
-              </div>
+      </div>
               <div
                 style={{
                   wordWrap: "break-word",
@@ -208,8 +276,8 @@ export function SendBitcoinCard() {
                 }}
               >
                 {result.data}
-              </div>
-            </div>
+        </div>
+        </div>
           }
           type="success"
           showIcon

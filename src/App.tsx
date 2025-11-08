@@ -13,6 +13,7 @@ import { MultiSignMessageCard } from './components/MultiSignMessageCard';
 import { SignPsbtsCard } from './components/SignPsbtsCard';
 import { DecodePsbtTxCard } from './components/DecodePsbtTxCard';
 import { UtxosListCard } from './components/UtxosListCard';
+import { UtxoSelectionProvider } from './contexts/UtxoSelectionContext';
 import useMessage from 'antd/es/message/useMessage';
 
 function App() {
@@ -252,6 +253,7 @@ function App() {
   ];
 
   return (
+    <UtxoSelectionProvider>
     <div className="App">
       <header className="App-header">
         <div className="header-container">
@@ -283,10 +285,10 @@ function App() {
                   <div style={{ wordWrap: 'break-word' }}>{version}</div>
                 </div>
 
-                <div style={{ textAlign: 'left', marginTop: 10 }}>
-                  <div style={{ fontWeight: 'bold' }}>Chain:</div>
+                  <div style={{ textAlign: 'left', marginTop: 10 }}>
+                    <div style={{ fontWeight: 'bold' }}>Chain:</div>
                   <div style={{ wordWrap: 'break-word' }}>Bitcoin Mainnet</div>
-                </div>
+                  </div>
 
                 <div style={{ textAlign: 'left', marginTop: 10 }}>
                   <div style={{ fontWeight: 'bold' }}>Network:</div>
@@ -368,6 +370,7 @@ function App() {
         )}
       </header>
     </div>
+    </UtxoSelectionProvider>
   );
 }
 

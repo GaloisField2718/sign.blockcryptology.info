@@ -113,7 +113,7 @@ export function SignPsbtCard() {
             }}
           >
             {result.data}
-          </div>
+        </div>
         </div>
       )}
 
@@ -132,7 +132,7 @@ export function SignPsbtCard() {
             Sign (autoFinalize: true, broadcast: true)
           </Button>
 
-          <Button
+      <Button
             block
             loading={loading === "true-false"}
             onClick={() => handleSignPsbt(true, false)}
@@ -148,7 +148,7 @@ export function SignPsbtCard() {
             disabled={!psbtHex.trim()}
           >
             Sign (autoFinalize: false, broadcast: false)
-          </Button>
+      </Button>
         </Space>
       </div>
     </Card>

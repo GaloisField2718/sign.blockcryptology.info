@@ -1,0 +1,22 @@
+{
+  "name": "txspam-proxy",
+  "version": "1.0.0",
+  "description": "Proxy server for sdk.txspam.lol API to handle CORS",
+  "main": "txspam-proxy.js",
+  "scripts": {
+    "start": "node txspam-proxy.js",
+    "dev": "nodemon txspam-proxy.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
+

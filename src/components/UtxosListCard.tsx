@@ -1,26 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Button, Card, Input, Alert, Spin, Typography, Space } from "antd";
-import { SearchOutlined } from "@ant-design/icons";
+import { Button, Card, Input, Alert, Spin, Typography, Space, Checkbox, Tag, Tooltip } from "antd";
+import { SearchOutlined, ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import { satoshisToAmount } from "../utils";
-import { API_BASE_URL } from "../config";
+import { useUtxoSelection } from "../contexts/UtxoSelectionContext";
+import { useUtxos } from "../hooks/useUtxos";
 
 const { Text, Link } = Typography;
-
-interface RuneBalance {
-  name: string;
-  balance: string;
-}
-
-interface Utxo {
-  outpoint: string;
-  value: number;
-  runes: RuneBalance[];
-  inscriptions: string[];
-}
-
-interface UtxosResponse {
-  data: Utxo[];
-}
 
 interface UtxosListCardProps {
   defaultAddress?: string;
@@ -28,235 +13,203 @@ interface UtxosListCardProps {
 
 export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
   const [address, setAddress] = useState(defaultAddress);
-  const [apiKey, setApiKey] = useState("");
-  const [utxos, setUtxos] = useState<Utxo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [hasLoaded, setHasLoaded] = useState(false);
+  const [fetchStatus, setFetchStatus] = useState(false);
   const isUserModifiedRef = useRef(false);
   const hasInitializedRef = useRef(false);
-  const isApiKeyUserModifiedRef = useRef(false); // Track if user manually entered API key
+  const { toggleUtxo, isUtxoSelected } = useUtxoSelection();
 
-  // Initialiser avec l'adresse par défaut UNIQUEMENT au premier montage, SI elle n'a pas été modifiée
+  const {
+    utxos,
+    loading,
+    error,
+    fetchUtxos,
+    fetchUtxoStatus,
+    refreshUtxos,
+    clearError,
+  } = useUtxos({
+    fetchStatus: fetchStatus,
+    onError: (err) => {
+      console.error("UTXO fetch error:", err);
+    },
+  });
+
+  // Initialiser avec l'adresse par défaut UNIQUEMENT au premier montage
   useEffect(() => {
-    // Ne s'exécute qu'une seule fois au montage
     if (!hasInitializedRef.current && defaultAddress && defaultAddress.trim() !== "") {
       setAddress(defaultAddress);
       hasInitializedRef.current = true;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Seulement au montage - ne pas réexécuter même si defaultAddress change
+  }, []);
 
-  // Fonction pour récupérer la clé API depuis PostgREST
-  const fetchStoredApiKey = async (addr: string) => {
-    if (!addr || !addr.trim()) return;
-
-    const bitcoinAddressRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/;
-    if (!bitcoinAddressRegex.test(addr.trim())) return;
-
-    try {
-      // PostgREST API: GET /address_api_keys?address=eq.{address}&select=api_key
-      const encodedAddress = encodeURIComponent(addr.trim());
-      const response = await fetch(
-        `${API_BASE_URL}/address_api_keys?address=eq.${encodedAddress}&select=api_key`,
-        {
-          headers: {
-            'Accept': 'application/json',
-          },
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        // PostgREST retourne un tableau
-        if (Array.isArray(data) && data.length > 0 && data[0].api_key) {
-          setApiKey(data[0].api_key);
-          return true;
-        }
-      }
-    } catch (error) {
-      // Silently fail - backend may not be available or no key stored
-      console.debug('No stored API key found or backend unavailable:', error);
-    }
-    return false;
-  };
-
-  // Fonction pour sauvegarder la clé API dans PostgREST
-  const saveApiKey = async (addr: string, key: string) => {
-    if (!addr || !key || !addr.trim() || !key.trim()) {
-      console.warn('saveApiKey: Missing address or apiKey', { addr, hasKey: !!key });
-      return;
-    }
-
-    const bitcoinAddressRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/;
-    if (!bitcoinAddressRegex.test(addr.trim())) {
-      console.warn('saveApiKey: Invalid Bitcoin address format', addr);
-      return;
-    }
-
-    try {
-      // PostgREST API: POST /address_api_keys avec Prefer: resolution=merge-duplicates pour UPSERT
-      const response = await fetch(`${API_BASE_URL}/address_api_keys`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates', // UPSERT (insert or update on conflict)
-        },
-        body: JSON.stringify({
-          address: addr.trim(),
-          api_key: key.trim(),
-        }),
-      });
-
-      if (response.ok || response.status === 201 || response.status === 204) {
-        console.log('✅ API key saved successfully for address:', addr.trim());
-        return true;
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Failed to save API key:', response.status, response.statusText, errorText);
-        return false;
-      }
-    } catch (error) {
-      // Backend may not be available - log but don't block user
-      console.error('❌ Failed to save API key (backend unavailable):', error);
-      return false;
-    }
-  };
-
-  // Récupérer la clé API quand l'adresse change UNIQUEMENT si l'utilisateur n'a pas modifié la clé manuellement
+  // Auto-load when address is available
   useEffect(() => {
-    // Ne charger la clé stockée QUE si l'utilisateur n'a pas encore modifié manuellement la clé
-    if (isApiKeyUserModifiedRef.current) return; // L'utilisateur a déjà saisi sa clé, ne pas l'écraser
-    
-    // Attendre un peu avant de récupérer la clé (debounce)
-    const trimmedAddress = address.trim();
-    if (!trimmedAddress || apiKey.trim()) return; // Ne rien faire si pas d'adresse ou clé déjà remplie
-    
-    const bitcoinAddressRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/;
-    if (!bitcoinAddressRegex.test(trimmedAddress)) return;
-
-    // Debounce pour éviter de faire trop de requêtes pendant la saisie
-    const timer = setTimeout(() => {
-      fetchStoredApiKey(trimmedAddress);
-    }, 500); // Attendre 500ms après la dernière modification
-
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address]);
-
-  const fetchUtxos = async () => {
-    if (!address.trim()) {
-      setError("Please enter a Bitcoin address");
-      return;
-    }
-
-    if (!apiKey.trim()) {
-      setError("Please enter your ordiscan.com API key");
-      return;
-    }
-
-    // Validation basique d'adresse Bitcoin
-    const bitcoinAddressRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/;
-    if (!bitcoinAddressRegex.test(address.trim())) {
-      setError("Invalid Bitcoin address format");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    setUtxos([]);
-
-    try {
-      // Appel API ordiscan.com avec clé API requise
-      const response = await fetch(
-        `https://api.ordiscan.com/v1/address/${address.trim()}/utxos`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey.trim()}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error(
-            "API key required. Please configure your ordiscan.com API key."
-          );
-        }
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data: UtxosResponse = await response.json();
-      setUtxos(data.data || []);
-
-      // Sauvegarder la clé API SAISIE PAR L'UTILISATEUR après un appel API réussi
-      // On utilise la valeur actuelle du state apiKey (celle saisie par l'utilisateur)
-      const currentApiKey = apiKey.trim();
-      const currentAddress = address.trim();
-      
-      console.log('🔍 Tentative de sauvegarde:', { 
-        address: currentAddress, 
-        hasApiKey: !!currentApiKey,
-        apiKeyLength: currentApiKey.length 
-      });
-      
-      if (currentAddress && currentApiKey) {
-        console.log('💾 Sauvegarde de la clé API pour:', currentAddress);
-        const saved = await saveApiKey(currentAddress, currentApiKey);
-        if (saved) {
-          console.log('✅ Votre clé API a été sauvegardée avec succès pour:', currentAddress);
-        } else {
-          console.error('❌ Échec de la sauvegarde de la clé API pour:', currentAddress);
-        }
-      } else {
-        console.warn('⚠️ Impossible de sauvegarder: adresse ou clé API manquante', {
-          hasAddress: !!currentAddress,
-          hasApiKey: !!currentApiKey
-        });
-      }
-    } catch (e: any) {
-      const errorMessage =
-        e?.message || e?.toString() || "Failed to fetch UTXOs";
-      setError(errorMessage);
-      setUtxos([]);
-    } finally {
-      setLoading(false);
-      setHasLoaded(true);
-    }
-  };
-
-  // Auto-load when address and API key are available and card is opened
-  useEffect(() => {
-    if (address && address.trim() && apiKey && apiKey.trim() && !hasLoaded && !loading) {
+    if (address && address.trim() && !isUserModifiedRef.current) {
+      const trimmedAddress = address.trim();
       const bitcoinAddressRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/;
-      if (bitcoinAddressRegex.test(address.trim())) {
-        fetchUtxos();
+      if (bitcoinAddressRegex.test(trimmedAddress)) {
+        fetchUtxos(trimmedAddress);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, apiKey]);
+  }, []);
 
-  const availableUtxos = utxos.filter(
-    (utxo) => utxo.inscriptions.length === 0 && utxo.runes.length === 0
-  );
-  const lockedUtxos = utxos.filter(
-    (utxo) => utxo.inscriptions.length > 0 || utxo.runes.length > 0
-  );
+  const handleFetchUtxos = async () => {
+    if (!address.trim()) {
+      return;
+    }
+    await fetchUtxos(address.trim());
+  };
 
-  const totalAvailable = availableUtxos.reduce(
-    (sum, utxo) => sum + utxo.value,
-    0
-  );
-  const totalLocked = lockedUtxos.reduce((sum, utxo) => sum + utxo.value, 0);
+  const handleRefreshStatus = async () => {
+    if (!address.trim() || utxos.length === 0) {
+      return;
+    }
 
-  const formatOutpoint = (outpoint: string): { txid: string; vout: string } => {
-    const parts = outpoint.split(":");
+    setFetchStatus(true);
+    // Fetch status for all UTXOs
+    for (const utxo of utxos) {
+      if (!utxo.status) {
+        await fetchUtxoStatus(utxo.txid, utxo.vout, address.trim());
+      }
+    }
+    setFetchStatus(false);
+  };
+
+  // Séparer les UTXOs par statut
+  const unspentUtxos = utxos.filter((utxo) => !utxo.isSpent && !utxo.isLocked);
+  const lockedUtxos = utxos.filter((utxo) => utxo.isLocked === true);
+  const spentUtxos = utxos.filter((utxo) => utxo.isSpent === true && !utxo.isLocked);
+  const unknownStatusUtxos = utxos.filter((utxo) => utxo.isSpent === undefined && utxo.isLocked === undefined);
+
+  // Calculer les totaux (avec vérification de sécurité)
+  const totalUnspent = unspentUtxos.reduce((sum, utxo) => {
+    const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
+    return sum + satoshi;
+  }, 0);
+  const totalSpent = spentUtxos.reduce((sum, utxo) => {
+    const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
+    return sum + satoshi;
+  }, 0);
+  const totalUnknown = unknownStatusUtxos.reduce((sum, utxo) => {
+    const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
+    return sum + satoshi;
+  }, 0);
+
+  const formatOutpointDisplay = (txid: string, vout: number): { txid: string; vout: string } => {
     return {
-      txid: parts[0] || "",
-      vout: parts[1] || "0",
+      txid: txid || "",
+      vout: vout.toString() || "0",
     };
+  };
+
+  const renderUtxoItem = (
+    utxo: typeof utxos[0],
+    idx: number,
+    showStatus: boolean = true
+  ) => {
+    // Safety check: ensure satoshi is a valid number
+    const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) 
+      ? utxo.satoshi 
+      : 0;
+    
+    const { txid, vout } = formatOutpointDisplay(utxo.txid, utxo.vout);
+    const btcAmount = satoshisToAmount(satoshi);
+    const outpoint = `${utxo.txid}:${utxo.vout}`;
+    const isSelected = isUtxoSelected(outpoint);
+    const isSpent = utxo.isSpent === true;
+    const statusUnknown = utxo.isSpent === undefined;
+
+    return (
+      <div
+        key={idx}
+        style={{
+          marginBottom: 8,
+          padding: "8px",
+          backgroundColor: isSelected
+            ? "rgba(24, 144, 255, 0.1)"
+            : isSpent
+            ? "rgba(255, 77, 79, 0.05)"
+            : "var(--bg-card)",
+          borderRadius: "6px",
+          fontFamily: "monospace",
+          fontSize: "13px",
+          border: isSelected
+            ? "1px solid #1890ff"
+            : isSpent
+            ? "1px solid rgba(255, 77, 79, 0.3)"
+            : "1px solid transparent",
+          cursor: isSpent ? "not-allowed" : "pointer",
+          opacity: isSpent ? 0.6 : 1,
+        }}
+        onClick={() => {
+          if (!isSpent) {
+            const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
+            toggleUtxo({
+              outpoint,
+              value: satoshi,
+              address: address.trim(),
+            });
+          }
+        }}
+      >
+        <Space>
+          {!isSpent && (
+            <Checkbox
+              checked={isSelected}
+              onChange={() => {
+                const satoshi = typeof utxo.satoshi === 'number' && !isNaN(utxo.satoshi) ? utxo.satoshi : 0;
+                toggleUtxo({
+                  outpoint,
+                  value: satoshi,
+                  address: address.trim(),
+                });
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+          {showStatus && (
+            <>
+              {isSpent ? (
+                <Tooltip title="This UTXO has been spent">
+                  <Tag color="red" icon={<CloseCircleOutlined />}>
+                    Spent
+                  </Tag>
+                </Tooltip>
+              ) : statusUnknown ? (
+                <Tooltip title="Status unknown - click refresh to check">
+                  <Tag color="default">Unknown</Tag>
+                </Tooltip>
+              ) : (
+                <Tooltip title="This UTXO is available">
+                  <Tag color="green" icon={<CheckCircleOutlined />}>
+                    Unspent
+                  </Tag>
+                </Tooltip>
+              )}
+            </>
+          )}
+          <Link
+            href={`https://nullpool.space/tx/${txid}:${vout}`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {txid}:{vout}
+          </Link>{" "}
+          <Text strong>{satoshi.toLocaleString()} sats</Text>{" "}
+          <Text type="secondary">(=)</Text>{" "}
+          <Text strong>{btcAmount} BTC</Text>
+          {utxo.scriptPk && (
+            <Tooltip title={`ScriptPK: ${utxo.scriptPk}`}>
+              <Text type="secondary" style={{ fontSize: "11px", marginLeft: 8 }}>
+                [scriptPk]
+              </Text>
+            </Tooltip>
+          )}
+        </Space>
+      </div>
+    );
   };
 
   return (
@@ -266,11 +219,33 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
       className="utxos-list-card-fluo"
       style={{
         margin: 10,
-        // Pas de border/style inline ici - tout est géré par la classe CSS utxos-list-card-fluo
         transition: "all 0.3s ease",
         position: "relative",
         overflow: "hidden",
       }}
+      extra={
+        utxos.length > 0 && (
+          <Space>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={handleRefreshStatus}
+              loading={fetchStatus}
+              disabled={loading}
+            >
+              Check Status
+            </Button>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={refreshUtxos}
+              loading={loading}
+            >
+              Refresh
+            </Button>
+          </Space>
+        )
+      }
     >
       {loading && (
         <div
@@ -280,27 +255,13 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
             left: 0,
             right: 0,
             height: "3px",
-            background: "linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 50%, var(--accent) 100%)",
+            background:
+              "linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 50%, var(--accent) 100%)",
             backgroundSize: "200% 100%",
             animation: "shimmer 1.5s ease-in-out infinite",
           }}
         />
       )}
-      <div style={{ textAlign: "left", marginTop: 10 }}>
-        <div style={{ fontWeight: "bold", marginBottom: 8 }}>
-          ordiscan.com API Key:
-        </div>
-        <Input.Password
-          value={apiKey}
-          onChange={(e) => {
-            setApiKey(e.target.value);
-            isApiKeyUserModifiedRef.current = true; // L'utilisateur modifie la clé manuellement
-          }}
-          placeholder="Enter your ordiscan.com API key"
-          style={{ marginBottom: 10 }}
-          disabled={loading}
-        />
-      </div>
 
       <div style={{ textAlign: "left", marginTop: 10 }}>
         <div style={{ fontWeight: "bold", marginBottom: 8 }}>Bitcoin Address:</div>
@@ -310,20 +271,20 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
             onChange={(e) => {
               setAddress(e.target.value);
               isUserModifiedRef.current = true;
-              setError(""); // Clear error when user starts typing
+              clearError();
             }}
             placeholder="Enter Bitcoin address (e.g., bc1...)"
             style={{ fontFamily: "monospace" }}
-            onPressEnter={fetchUtxos}
+            onPressEnter={handleFetchUtxos}
             disabled={loading}
             allowClear
           />
           <Button
             type="primary"
             icon={<SearchOutlined />}
-            onClick={fetchUtxos}
+            onClick={handleFetchUtxos}
             loading={loading}
-            disabled={!address.trim() || !apiKey.trim() || loading}
+            disabled={!address.trim() || loading}
           >
             Load UTXOs
           </Button>
@@ -338,7 +299,7 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
           showIcon
           style={{ marginTop: 10, textAlign: "left" }}
           closable
-          onClose={() => setError("")}
+          onClose={clearError}
         />
       )}
 
@@ -372,153 +333,144 @@ export function UtxosListCard({ defaultAddress = "" }: UtxosListCardProps) {
               fontSize: "12px",
             }}
           >
-            Fetching data from ordiscan.com
+            Fetching data from sdk.txspam.lol
           </div>
         </div>
       )}
 
       {!loading && utxos.length > 0 && (
         <div style={{ marginTop: 20, textAlign: "left" }}>
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontWeight: "bold", fontSize: "16px", marginBottom: 10 }}>
-              Available Balance:
-            </div>
-            {availableUtxos.length === 0 ? (
-              <Text type="secondary">No available UTXOs</Text>
-            ) : (
+          {/* Unspent UTXOs */}
+          {unspentUtxos.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "16px",
+                  marginBottom: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <CheckCircleOutlined style={{ color: "#52c41a" }} />
+                Available Balance (Unspent):
+              </div>
               <div>
-                {availableUtxos.map((utxo, idx) => {
-                  const { txid, vout } = formatOutpoint(utxo.outpoint);
-                  const btcAmount = satoshisToAmount(utxo.value);
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        marginBottom: 8,
-                        padding: "8px",
-                        backgroundColor: "var(--bg-card)",
-                        borderRadius: "6px",
-                        fontFamily: "monospace",
-                        fontSize: "13px",
-                      }}
-                    >
-                      <Link
-                        href={`https://nullpool.space/tx/${txid}:${vout}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {txid}:{vout}
-                      </Link>{" "}
-                      <Text strong>{utxo.value.toLocaleString()} sats</Text>{" "}
-                      <Text type="secondary">(=)</Text>{" "}
-                      <Text strong>{btcAmount} BTC</Text>
-                    </div>
-                  );
-                })}
+                {unspentUtxos.map((utxo, idx) =>
+                  renderUtxoItem(utxo, idx, true)
+                )}
                 <div
                   style={{
                     marginTop: 10,
                     padding: "10px",
-                    backgroundColor: "rgba(255, 125, 71, 0.1)",
+                    backgroundColor: "rgba(82, 196, 26, 0.1)",
                     borderRadius: "6px",
                     fontWeight: "bold",
                   }}
                 >
-                  Total: {totalAvailable.toLocaleString()} sats (
-                  {satoshisToAmount(totalAvailable)} BTC)
+                  Total: {totalUnspent.toLocaleString()} sats (
+                  {satoshisToAmount(totalUnspent)} BTC)
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div style={{ marginTop: 20 }}>
-            <div style={{ fontWeight: "bold", fontSize: "16px", marginBottom: 10 }}>
-              Locked Balance:
-            </div>
-            {lockedUtxos.length === 0 ? (
-              <Text type="secondary">No locked UTXOs</Text>
-            ) : (
+          {/* Unknown Status UTXOs */}
+          {unknownStatusUtxos.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "16px",
+                  marginBottom: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <Tag color="default">?</Tag>
+                Unknown Status:
+                <Button
+                  size="small"
+                  type="link"
+                  icon={<ReloadOutlined />}
+                  onClick={handleRefreshStatus}
+                  loading={fetchStatus}
+                  style={{ padding: 0, height: "auto" }}
+                >
+                  Check Status
+                </Button>
+              </div>
               <div>
-                {lockedUtxos.map((utxo, idx) => {
-                  const { txid, vout } = formatOutpoint(utxo.outpoint);
-                  const btcAmount = satoshisToAmount(utxo.value);
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        marginBottom: 12,
-                        padding: "10px",
-                        backgroundColor: "rgba(255, 125, 71, 0.05)",
-                        borderRadius: "6px",
-                        border: `1px solid rgba(255, 125, 71, 0.2)`,
-                      }}
-                    >
-                      <div style={{ marginBottom: 6, fontFamily: "monospace", fontSize: "13px" }}>
-                        <Link
-                          href={`https://ordiscan.com/tx/${txid}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {txid}:{vout}
-                        </Link>{" "}
-                        <Text strong>{utxo.value.toLocaleString()} sats</Text>{" "}
-                        <Text type="secondary">(=)</Text>{" "}
-                        <Text strong>{btcAmount} BTC</Text>
-                      </div>
-                      {utxo.inscriptions.length > 0 && (
-                        <div style={{ marginTop: 6, fontSize: "12px" }}>
-                          <Text type="secondary">Inscriptions: </Text>
-                          {utxo.inscriptions.map((inscriptionId, i) => (
-                            <Link
-                              key={i}
-                              href={`https://ordiscan.com/inscription/${inscriptionId}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ marginLeft: 4 }}
-                            >
-                              {inscriptionId.slice(0, 8)}...
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                      {utxo.runes.length > 0 && (
-                        <div style={{ marginTop: 6, fontSize: "12px" }}>
-                          <Text type="secondary">Runes: </Text>
-                          {utxo.runes.map((rune, i) => (
-                            <span key={i} style={{ marginLeft: 4 }}>
-                              <Text strong>{rune.name}</Text>{" "}
-                              <Text type="secondary">({rune.balance})</Text>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {unknownStatusUtxos.map((utxo, idx) =>
+                  renderUtxoItem(utxo, idx, true)
+                )}
                 <div
                   style={{
                     marginTop: 10,
                     padding: "10px",
-                    backgroundColor: "rgba(255, 125, 71, 0.1)",
+                    backgroundColor: "rgba(140, 140, 140, 0.1)",
                     borderRadius: "6px",
                     fontWeight: "bold",
                   }}
                 >
-                  Total: {totalLocked.toLocaleString()} sats (
-                  {satoshisToAmount(totalLocked)} BTC)
+                  Total: {totalUnknown.toLocaleString()} sats (
+                  {satoshisToAmount(totalUnknown)} BTC)
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Spent UTXOs */}
+          {spentUtxos.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "16px",
+                  marginBottom: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <CloseCircleOutlined style={{ color: "#ff4d4f" }} />
+                Spent UTXOs:
+              </div>
+              <div>
+                {spentUtxos.map((utxo, idx) =>
+                  renderUtxoItem(utxo, idx, true)
+                )}
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px",
+                    backgroundColor: "rgba(255, 77, 79, 0.1)",
+                    borderRadius: "6px",
+                    fontWeight: "bold",
+                  }}
+                >
+                  Total: {totalSpent.toLocaleString()} sats (
+                  {satoshisToAmount(totalSpent)} BTC)
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {!loading && utxos.length === 0 && !error && address && (
-        <div style={{ marginTop: 20, textAlign: "center", color: "var(--text-secondary)" }}>
+        <div
+          style={{
+            marginTop: 20,
+            textAlign: "center",
+            color: "var(--text-secondary)",
+          }}
+        >
           Enter an address and click "Load UTXOs" to fetch the UTXO list
         </div>
       )}
     </Card>
   );
 }
-

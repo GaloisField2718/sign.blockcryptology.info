@@ -127,8 +127,8 @@ export function PushPsbtCard() {
                 }}
               >
                 {result.data}
-              </div>
-            </div>
+        </div>
+        </div>
           }
           type="success"
           showIcon

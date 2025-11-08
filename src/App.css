@@ -195,7 +195,7 @@
       0 0 40px rgba(255, 125, 71, 0.6),
       0 0 60px rgba(255, 125, 71, 0.4),
       0 0 80px rgba(255, 125, 71, 0.3) !important;
-  }
+}
   50% {
     box-shadow: 
       0 0 30px rgba(255, 125, 71, 1),
@@ -205,38 +205,22 @@
   }
 }
 
-/* Titre en orange FLUO avec animation */
+/* RIEN DE FLUO DANS LA CARD - SEULEMENT LE CONTOUR AUTOUR */
 .utxos-list-card-fluo .ant-card-head {
   background: var(--bg-card) !important; /* Fond normal */
-  border-bottom: 1px solid rgba(255, 125, 71, 0.2) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important; /* Bordure normale */
 }
 
 .utxos-list-card-fluo .ant-card-body {
   background: var(--bg-card) !important; /* Fond normal */
 }
 
-/* TITRE EN ORANGE FLUO avec glow, effet PLIÉ et animation */
+/* TITRE NORMAL - EXACTEMENT COMME LES AUTRES CARDS - AUCUN EFFET FLUO */
 .utxos-list-card-fluo .ant-card-head-title {
-  color: #ff7d47 !important;
-  font-weight: bold !important;
-  font-size: 1.1rem !important;
-  /* Effet FLUO autour du texte - MULTIPLES COUCHES pour un glow intense */
-  text-shadow: 
-    0 0 5px rgba(255, 125, 71, 1),
-    0 0 10px rgba(255, 125, 71, 1),
-    0 0 15px rgba(255, 125, 71, 0.9),
-    0 0 20px rgba(255, 125, 71, 0.8),
-    0 0 30px rgba(255, 125, 71, 0.7),
-    0 0 40px rgba(255, 125, 71, 0.6),
-    0 0 50px rgba(255, 125, 71, 0.5),
-    /* Effet PLIÉ avec des ombres décalées pour créer un effet 3D */
-    2px 2px 0px rgba(255, 125, 71, 0.3),
-    4px 4px 0px rgba(255, 125, 71, 0.2),
-    -2px -2px 0px rgba(255, 100, 50, 0.2) !important;
-  /* Transformation pour effet plié */
-  transform: perspective(500px) rotateX(5deg) !important;
-  display: inline-block !important;
-  animation: fluo-pulse-title 2s ease-in-out infinite !important;
+  color: var(--text-primary) !important; /* Couleur normale */
+  font-weight: 500 !important; /* Poids normal */
+  font-size: 1rem !important; /* Taille normale */
+  /* AUCUN text-shadow, AUCUN transform, AUCUNE animation */
 }
 
 .ant-card-head {
@@ -308,22 +292,11 @@
 }
 
 .utxos-list-header {
-  color: var(--text-primary) !important; /* Texte noir comme les autres pour lisibilité */
-  font-weight: bold !important;
-  font-size: 1.1rem !important;
-  /* Stroke noir pour rendre le texte lisible */
-  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.3) !important;
-  /* Glow orange FLUO autour du texte (mais le texte reste noir/lisible) */
-  text-shadow: 
-    0 0 8px rgba(255, 125, 71, 0.8),
-    0 0 16px rgba(255, 125, 71, 0.6),
-    0 0 24px rgba(255, 125, 71, 0.4),
-    /* Contour noir pour lisibilité */
-    1px 1px 0px rgba(0, 0, 0, 0.5),
-    -1px -1px 0px rgba(0, 0, 0, 0.3) !important;
-  transform: perspective(500px) rotateX(3deg) !important;
-  display: inline-block !important;
-  animation: fluo-pulse-title-readable 2s ease-in-out infinite !important;
+  /* EXACTEMENT comme les autres labels du collapse - AUCUN effet spécial */
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+  font-size: 1rem !important;
+  /* Pas de text-shadow, pas de transform, pas d'animation - IDENTIQUE aux autres */
 }
 
 .ant-collapse-header {
@@ -494,11 +467,11 @@
 @media (max-width: 576px) {
   .App-header {
     padding: 16px 8px;
-  }
+}
 
   .app-title h1 {
     font-size: 1.75rem;
-  }
+}
 
   .app-title .subtitle {
     font-size: 0.8rem;
@@ -521,7 +494,7 @@
 
 ::-webkit-scrollbar-track {
   background: var(--bg-primary);
-}
+  }
 
 ::-webkit-scrollbar-thumb {
   background: var(--shadow-dark);

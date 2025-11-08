@@ -65,7 +65,7 @@ export function DecodePsbtTxCard() {
       
       const firstByte = buffer[0].toString(16).padStart(2, "0");
       
-      if (firstByte === "07") {
+      if (firstByte === "70") {
         return "PSBT";
       } else if (firstByte === "02") {
         return "RAWTX";
@@ -82,7 +82,7 @@ export function DecodePsbtTxCard() {
         
         const firstByte = base64Buffer[0].toString(16).padStart(2, "0");
         
-        if (firstByte === "07") {
+        if (firstByte === "70") {
           return "PSBT";
         } else if (firstByte === "02") {
           return "RAWTX";
@@ -310,7 +310,7 @@ export function DecodePsbtTxCard() {
       const detectedType = detectType(hexInput);
       
       if (detectedType === "INVALID") {
-        setError("INVALID Bitcoin TX: Transaction must start with 0x07 (PSBT) or 0x02 (RAWTX)");
+        setError("INVALID Bitcoin TX: Transaction must start with 0x70 (PSBT) or 0x02 (RAWTX)");
         setDecodedData(null);
         return;
       }

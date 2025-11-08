@@ -1,17 +1,23 @@
--- PostgreSQL Schema for ordiscan.com API Key Storage
--- Minimal schema to store Bitcoin address -> API key associations
+-- PostgreSQL Schema for API Key Storage (Ordiscan & Unisat)
+-- Minimal schema to store Bitcoin address -> API key associations per provider
 
--- Table to store API keys associated with Bitcoin addresses
+-- Table to store API keys associated with Bitcoin addresses and providers
 CREATE TABLE IF NOT EXISTS address_api_keys (
     id SERIAL PRIMARY KEY,
-    address VARCHAR(100) NOT NULL UNIQUE,
+    address VARCHAR(100) NOT NULL,
+    provider VARCHAR(50) NOT NULL DEFAULT 'ordiscan',
     api_key TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- Unique constraint on (address, provider) to allow multiple keys per address
+    UNIQUE(address, provider)
 );
 
 -- Index on address for fast lookups
 CREATE INDEX IF NOT EXISTS idx_address_api_keys_address ON address_api_keys(address);
+
+-- Index on (address, provider) for fast lookups with provider filter
+CREATE INDEX IF NOT EXISTS idx_address_api_keys_address_provider ON address_api_keys(address, provider);
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -23,6 +29,7 @@ END;
 $$ language 'plpgsql';
 
 -- Trigger to update updated_at on UPDATE
+DROP TRIGGER IF EXISTS update_address_api_keys_updated_at ON address_api_keys;
 CREATE TRIGGER update_address_api_keys_updated_at
     BEFORE UPDATE ON address_api_keys
     FOR EACH ROW
